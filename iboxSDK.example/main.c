@@ -4,20 +4,30 @@
 #include "SDK/PaymentController.h"
 
 #define DEBUG_ENABLED 			1
-#define AUTH                    	1
-#define GET_READER_INFO         	1
+#define AUTH                    1
+#define GET_READER_INFO         1
 #define TEST_LINKED_CARD 		0
 #define TEST_CARD_PAYMENT 		1
+#define TEST_SCHEDULE			0
+#define TEST_REVERSE			0
 #define TEST_PURCHASES			0
 #define TEST_PRODUCT			0
+#define TEST_TRANSACTION		0
 
 #define EMAIL            		""
 #define SECRET_KEY			""
+#define AMOUNT				1.0
+
+void startTransactionAction(const char *transactionId)
+{
+	fprintf(stderr, "TransactionID:%s\n", transactionId);
+}
 
 int main(void)
 {
 	Ibox_PaymentController_SetSendWebRequestAction(&sendWebRequest);
 	Ibox_PaymentController_SetSendReaderRequestAction(&sendReaderRequest);
+	Ibox_PaymentController_SetStartTransactionAction(&startTransactionAction);
 	Ibox_PaymentController_SetCredentials(EMAIL, SECRET_KEY);
 	Ibox_PaymentController_SetDebugEnabled(DEBUG_ENABLED);
 	Ibox_PaymentController_ReaderSoundEnabled(1);
@@ -106,7 +116,6 @@ int main(void)
 		if (!readerCheckCardResult->errorCode)
 		{
 			Ibox_Result_AddLinkedCard *addLinkedCardResult = Ibox_PaymentController_AddLinkedCardWithReaderData(readerCheckCardResult);
-
 			if (!addLinkedCardResult->errorCode)
 			{
 				Ibox_LinkedCard *linkedCard = addLinkedCardResult->linkedCard;
@@ -119,15 +128,17 @@ int main(void)
 
 				Ibox_PaymentContext *paymentContext = malloc(sizeof(Ibox_PaymentContext));
 				paymentContext->inputType = Ibox_PaymentController_InputType_LINKED_CARD;
-				paymentContext->amount = 1.0;
+				paymentContext->amount = AMOUNT;
 				paymentContext->description = "Description of transaction";
 				paymentContext->linkedCardId = linkedCard->id;
 				paymentContext->purchasesCount = 0;
 				paymentContext->purchases = NULL;
+				paymentContext->purchasesJson = NULL;
 				paymentContext->product = NULL;
 				paymentContext->productData = NULL;
 				paymentContext->productDataCount = 0;
 				paymentContext->acquirer = NULL;
+				paymentContext->singleStepAuth = 1;
 
 				if (TEST_PURCHASES)
 				{
@@ -227,18 +238,20 @@ int main(void)
 	{
 		fprintf(stderr, "Card payment.\n");
 
-		const char *transactionId = NULL;
 		Ibox_PaymentContext *paymentContext = malloc(sizeof(Ibox_PaymentContext));
 		paymentContext->inputType = Ibox_PaymentController_InputType_CARD;
-		paymentContext->amount = 42.0;
+		paymentContext->currencyType = Ibox_PaymentController_CurrencyType_RUB;
+		paymentContext->amount = AMOUNT;
 		paymentContext->description = "Description of transaction";
 		paymentContext->linkedCardId = 0;
 		paymentContext->purchasesCount = 0;
 		paymentContext->purchases = NULL;
+		paymentContext->purchasesJson = NULL;
 		paymentContext->product = NULL;
 		paymentContext->productData = NULL;
 		paymentContext->productDataCount = 0;
 		paymentContext->acquirer = NULL;
+		paymentContext->singleStepAuth = 1;
 
 		if (TEST_PURCHASES)
 		{
@@ -297,39 +310,85 @@ int main(void)
 
 		Ibox_Result_Submit *submitResult = Ibox_PaymentController_StartPayment(paymentContext);
 		if (!submitResult->errorCode)
-		{
-			transactionId = submitResult->transaction->id;
 			fprintf(stderr, "Payment done!\n");
-		}
 		else
-		{
 			fprintf(stderr, "Payment error: %s\n", submitResult->errorMessage);
-		}
 
 		free(submitResult);
 		free(paymentContext);
+		fprintf(stderr, "\n");
+	}
 
+	if (TEST_REVERSE)
+	{
+		const char *transactionId = "59808481-B4AD-4703-A576-F869CEF2772F";
 		if (transactionId)
 		{
 			Ibox_ReverseContext *reverseContext = malloc(sizeof(Ibox_ReverseContext));
 			reverseContext->transactionId = transactionId;
-			reverseContext->amountReverse = 0.0f;
+			reverseContext->amountReverse = 0.0;
+			reverseContext->forceReturn = 0;
 
 			Ibox_Result_Reverse *reverseResult = Ibox_PaymentController_StartReverse(reverseContext);
 			if (!reverseResult->errorCode)
-			{
 				fprintf(stderr, "Reverse done!\n");
-			}
 			else
-			{
 				fprintf(stderr, "Reverse error: %s\n", reverseResult->errorMessage);
-			}
 
 			free(reverseResult);
 			free(reverseContext);
 		}
+	}
 
-		fprintf(stderr, "\n\n");
+	if (TEST_SCHEDULE)
+	{
+		Ibox_ScheduleContext *scheduleContext = malloc(sizeof(Ibox_ScheduleContext));
+		scheduleContext->currencyType = Ibox_PaymentController_CurrencyType_RUB;
+		scheduleContext->amount = AMOUNT;
+		scheduleContext->description = "Description of schedule";
+		scheduleContext->product = NULL;
+		scheduleContext->productData = NULL;
+		scheduleContext->productDataCount = 0;
+		scheduleContext->receiptPhone = NULL;
+		scheduleContext->receiptEmail = NULL;
+
+		scheduleContext->scheduleType = Ibox_Schedule_Type_WEEKLY;
+		scheduleContext->dayWeek = 1;
+		scheduleContext->day = 28;
+		scheduleContext->startDate = "2018-09-28";
+		scheduleContext->scheduleEndType = Ibox_Schedule_EndType_COUNT;
+		scheduleContext->dates = NULL;
+		scheduleContext->datesCount = 0;
+		scheduleContext->endCount = 1;
+
+		Ibox_Result_ScheduleSubmit *scheduleSubmitResult = Ibox_PaymentController_StartSchedule(scheduleContext);
+		if (!scheduleSubmitResult->errorCode)
+			fprintf(stderr, "Schedule done!\n");
+		else
+			fprintf(stderr, "Schedule error: %s\n", scheduleSubmitResult->errorMessage);
+
+		free(scheduleSubmitResult);
+		free(scheduleContext);
+	}
+
+	if (TEST_TRANSACTION)
+	{
+		const char *transactionId = "DF0D3D31-2B2D-4978-AFEA-EB3DB988886B";
+		Ibox_Result_Transactions *transactionResult = Ibox_PaymentController_Transaction(transactionId);
+		if (!transactionResult->errorCode)
+		{
+			Ibox_Transaction *transaction = NULL;
+			if (transactionResult->transactionsCount)
+				transaction = transactionResult->transactions[0];
+			if (transaction)
+			{
+				fprintf(stderr, "Transaction invoice: %s\n", transaction->invoice);
+
+				Ibox_FiscalInfo *fiscalInfo = transaction->fiscalInfo;
+				fprintf(stderr, "Fiscal printer serial number: %s\n", fiscalInfo->printerSerialNumber);
+				fprintf(stderr, "Fiscal date time: %s\n", fiscalInfo->dateTime);
+			}
+		}
 	}
 
 	return 0;

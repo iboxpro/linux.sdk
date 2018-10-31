@@ -79,6 +79,12 @@ typedef struct {
 } Ibox_Result_Reverse;
 
 typedef struct {
+    const char *errorMessage;
+    const char *scheduleId;
+    int errorCode;
+} Ibox_Result_ScheduleSubmit;
+
+typedef struct {
 	Ibox_Transaction **transactions;
 	const char *errorMessage;
 	int errorCode;

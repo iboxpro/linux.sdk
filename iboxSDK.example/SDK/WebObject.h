@@ -8,6 +8,7 @@ typedef enum
 	Ibox_Transaction_InputType_SWIPE = 2,
 	Ibox_Transaction_InputType_EMV = 3,
 	Ibox_Transaction_InputType_NFC = 4,
+	Ibox_Transaction_InputType_OUTER_CARD = 7,
 	Ibox_Transaction_InputType_PREPAID = 8,
 	Ibox_Transaction_InputType_CREDIT = 9,
 	Ibox_Transaction_InputType_CASH = 10,
@@ -28,6 +29,23 @@ typedef enum
 
 typedef enum
 {
+	Ibox_Transaction_DisplayMode_DECLINE = 0,
+	Ibox_Transaction_DisplayMode_SUCCESS = 1,
+	Ibox_Transaction_DisplayMode_REVERSE = 2,
+	Ibox_Transaction_DisplayMode_REVERSED = 3,
+	Ibox_Transaction_DisplayMode_NON_FINANCIAL = 100
+} Ibox_Transaction_DisplayMode;
+
+typedef enum
+{
+	Ibox_Transaction_SubstateStyle_BLACK,
+	Ibox_Transaction_SubstateStyle_RED,
+	Ibox_Transaction_SubstateStyle_GREY,
+	Ibox_Transaction_SubstateStyle_GREY_STRIKETHROUGH
+} Ibox_Transaction_SubstateStyle;
+
+typedef enum
+{
 	Ibox_LinkedCard_Status_CREATED = 1,
 	Ibox_LinkedCard_Status_VERIFYING = 2,
 	Ibox_LinkedCard_Status_VERIFIED = 3,
@@ -40,17 +58,65 @@ typedef enum
 	Ibox_LinkedCard_State_ENABLED = 1
 } Ibox_LinkedCard_State;
 
+typedef enum
+{
+	Ibox_FiscalInfo_Status_NONE = 0,
+	Ibox_FiscalInfo_Status_CREATED = 1,
+	Ibox_FiscalInfo_Status_SUCCESS = 2,
+	Ibox_FiscalInfo_Status_FAILURE = 4
+} Ibox_FiscalInfo_Status;
+
+typedef enum
+{
+	Ibox_Schedule_Type_NONE = -1,
+	Ibox_Schedule_Type_DELAYED_ONCE = 0,
+	Ibox_Schedule_Type_WEEKLY = 1,
+	Ibox_Schedule_Type_MONTHLY = 2,
+	Ibox_Schedule_Type_QUARTERLY = 3,
+	Ibox_Schedule_Type_ANNUAL = 4,
+	Ibox_Schedule_Type_ARBITRARY_DATES = 5,
+	Ibox_Schedule_Type_DAILY = 6
+} Ibox_Schedule_Type;
+
+typedef enum
+{
+	Ibox_Schedule_EndType_NONE = 0,
+	Ibox_Schedule_EndType_DATE = 1,
+	Ibox_Schedule_EndType_COUNT = 2
+} Ibox_Schedule_EndType;
+
 // structures
+typedef struct
+{
+	Ibox_FiscalInfo_Status status;
+	const char *printerSerialNumber;
+	const char *printerRegisterNumber;
+	const char *printerShift;
+	const char *printerCryptographicVerificationCode;
+	const char *printerDocSerialNumber;
+	const char *documentNumber;
+	const char *documentMark;
+	const char *storageNumber;
+	const char *dateTime;
+	const char *message;
+	int error;
+} Ibox_FiscalInfo;
+
 typedef struct
 {
 	Ibox_Transaction_InputType inputType;
 	Ibox_Transaction_ReverseMode reverseMode;
+	Ibox_Transaction_DisplayMode displayMode;
+	Ibox_Transaction_SubstateStyle substateStyle;
+	Ibox_FiscalInfo *fiscalInfo;
 	const char *id;
 	const char *date;
 	const char *currencyId;
+	const char *currencyIso;
 	const char *amountFormat;
 	const char *amountFormatWithoutCurrency;
 	const char *currencySign;
+	const char *currencySignSafe;
 	const char *description;
 	const char *stateDisplay;
 	const char *stateLine1;
@@ -58,6 +124,7 @@ typedef struct
 	const char *invoice;
 	double amount;
 	double amountEff;
+	int currencyDecimalsCount;
 } Ibox_Transaction;
 
 typedef struct
@@ -112,7 +179,7 @@ typedef struct
 	const char *textMask;
 	const char *textRegExp;
 	const char *defaultValue;
-	char *value;
+	const char *value;
 } Ibox_ProductField;
 
 typedef struct
