@@ -125,6 +125,8 @@ typedef struct
 	double amount;
 	double amountEff;
 	int currencyDecimalsCount;
+	int substate;
+	int state;
 } Ibox_Transaction;
 
 typedef struct
