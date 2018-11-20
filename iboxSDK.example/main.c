@@ -17,6 +17,7 @@
 #define EMAIL            		""
 #define SECRET_KEY			""
 #define AMOUNT				1.0
+#define TRANSACTION_ID			"871ED4D1-DCA4-4E69-AD2A-5E0743ACBBA8"
 
 void startTransactionAction(const char *transactionId)
 {
@@ -321,11 +322,10 @@ int main(void)
 
 	if (TEST_REVERSE)
 	{
-		const char *transactionId = "59808481-B4AD-4703-A576-F869CEF2772F";
-		if (transactionId)
+		if (TRANSACTION_ID)
 		{
 			Ibox_ReverseContext *reverseContext = malloc(sizeof(Ibox_ReverseContext));
-			reverseContext->transactionId = transactionId;
+			reverseContext->transactionId = TRANSACTION_ID;
 			reverseContext->amountReverse = 0.0;
 			reverseContext->forceReturn = 0;
 
@@ -373,8 +373,7 @@ int main(void)
 
 	if (TEST_TRANSACTION)
 	{
-		const char *transactionId = "DF0D3D31-2B2D-4978-AFEA-EB3DB988886B";
-		Ibox_Result_Transactions *transactionResult = Ibox_PaymentController_Transaction(transactionId);
+		Ibox_Result_Transactions *transactionResult = Ibox_PaymentController_Transaction(TRANSACTION_ID);
 		if (!transactionResult->errorCode)
 		{
 			Ibox_Transaction *transaction = NULL;
@@ -383,6 +382,8 @@ int main(void)
 			if (transaction)
 			{
 				fprintf(stderr, "Transaction invoice: %s\n", transaction->invoice);
+				fprintf(stderr, "Transaction state: %d\n", transaction->state);
+				fprintf(stderr, "Transaction substate: %d\n", transaction->substate);
 
 				Ibox_FiscalInfo *fiscalInfo = transaction->fiscalInfo;
 				fprintf(stderr, "Fiscal printer serial number: %s\n", fiscalInfo->printerSerialNumber);
