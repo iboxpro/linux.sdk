@@ -127,7 +127,7 @@ int main(void)
 				fprintf(stderr, "CardType: %s\n", linkedCard->cardType);
 				fprintf(stderr, "CardExp: %s\n", linkedCard->cardExpiration);
 
-				Ibox_PaymentContext *paymentContext = malloc(sizeof(Ibox_PaymentContext));
+				Ibox_PaymentContext *paymentContext = calloc(1, sizeof(Ibox_PaymentContext));
 				paymentContext->inputType = Ibox_PaymentController_InputType_LINKED_CARD;
 				paymentContext->amount = AMOUNT;
 				paymentContext->description = "Description of transaction";
@@ -143,7 +143,7 @@ int main(void)
 
 				if (TEST_PURCHASES)
 				{
-					Ibox_Purchase *purchase1 = malloc(sizeof(Ibox_Purchase));
+					Ibox_Purchase *purchase1 = calloc(1, sizeof(Ibox_Purchase));
 					purchase1->title = "Позиция 1";
 					purchase1->price = 120.0;
 					purchase1->quantity = 2.5;
@@ -154,7 +154,7 @@ int main(void)
 					purchase1->taxesCount = taxes1Count;
 					purchase1->taxes = taxes1;
 
-					Ibox_Purchase *purchase2 = malloc(sizeof(Ibox_Purchase));
+					Ibox_Purchase *purchase2 = calloc(1, sizeof(Ibox_Purchase));
 					purchase2->title = "Позиция 2";
 					purchase2->price = 100.0;
 					purchase2->quantity = 1.2;
@@ -172,16 +172,16 @@ int main(void)
 
 				if (TEST_PRODUCT)
 				{
-					Ibox_Product *product = malloc(sizeof(Ibox_Product));
+					Ibox_Product *product = calloc(1, sizeof(Ibox_Product));
 					product->title = "Тестовый продукт 1";
 					product->code = "PRODUCT_TEST";
 
-					Ibox_ProductField *field1 = malloc(sizeof(Ibox_ProductField));
+					Ibox_ProductField *field1 = calloc(1, sizeof(Ibox_ProductField));
 					field1->title = "Поле один";
 					field1->code = "FIELD_1";
 					field1->value = "Тестовое значение";
 
-					Ibox_ProductField *field2 = malloc(sizeof(Ibox_ProductField));
+					Ibox_ProductField *field2 = calloc(1, sizeof(Ibox_ProductField));
 					field2->title = "Поле два";
 					field2->code = "FIELD_2";
 					field2->value = "Тестовое значение";
@@ -239,7 +239,7 @@ int main(void)
 	{
 		fprintf(stderr, "Card payment.\n");
 
-		Ibox_PaymentContext *paymentContext = malloc(sizeof(Ibox_PaymentContext));
+		Ibox_PaymentContext *paymentContext = calloc(1, sizeof(Ibox_PaymentContext));
 		paymentContext->inputType = Ibox_PaymentController_InputType_CARD;
 		paymentContext->currencyType = Ibox_PaymentController_CurrencyType_RUB;
 		paymentContext->amount = AMOUNT;
@@ -256,7 +256,7 @@ int main(void)
 
 		if (TEST_PURCHASES)
 		{
-			Ibox_Purchase *purchase1 = malloc(sizeof(Ibox_Purchase));
+			Ibox_Purchase *purchase1 = calloc(1, sizeof(Ibox_Purchase));
 			purchase1->title = "Позиция 1";
 			purchase1->price = 120.0;
 			purchase1->quantity = 2.5;
@@ -267,7 +267,7 @@ int main(void)
 			purchase1->taxesCount = taxes1Count;
 			purchase1->taxes = taxes1;
 
-			Ibox_Purchase *purchase2 = malloc(sizeof(Ibox_Purchase));
+			Ibox_Purchase *purchase2 = calloc(1, sizeof(Ibox_Purchase));
 			purchase2->title = "Позиция 2";
 			purchase2->price = 100.0;
 			purchase2->quantity = 1.2;
@@ -285,16 +285,16 @@ int main(void)
 
 		if (TEST_PRODUCT)
 		{
-			Ibox_Product *product = malloc(sizeof(Ibox_Product));
+			Ibox_Product *product = calloc(1, sizeof(Ibox_Product));
 			product->title = "Тестовый продукт 1";
 			product->code = "PRODUCT_TEST";
 
-			Ibox_ProductField *field1 = malloc(sizeof(Ibox_ProductField));
+			Ibox_ProductField *field1 = calloc(1, sizeof(Ibox_ProductField));
 			field1->title = "Поле один";
 			field1->code = "FIELD_1";
 			field1->value = "Тестовое значение";
 
-			Ibox_ProductField *field2 = malloc(sizeof(Ibox_ProductField));
+			Ibox_ProductField *field2 = calloc(1, sizeof(Ibox_ProductField));
 			field2->title = "Поле два";
 			field2->code = "FIELD_2";
 			field2->value = "Тестовое значение";
@@ -324,7 +324,7 @@ int main(void)
 	{
 		if (TRANSACTION_ID)
 		{
-			Ibox_ReverseContext *reverseContext = malloc(sizeof(Ibox_ReverseContext));
+			Ibox_ReverseContext *reverseContext = calloc(1, sizeof(Ibox_ReverseContext));
 			reverseContext->transactionId = TRANSACTION_ID;
 			reverseContext->amountReverse = 0.0;
 			reverseContext->forceReturn = 0;
@@ -342,7 +342,7 @@ int main(void)
 
 	if (TEST_SCHEDULE)
 	{
-		Ibox_ScheduleContext *scheduleContext = malloc(sizeof(Ibox_ScheduleContext));
+		Ibox_ScheduleContext *scheduleContext = calloc(1, sizeof(Ibox_ScheduleContext));
 		scheduleContext->currencyType = Ibox_PaymentController_CurrencyType_RUB;
 		scheduleContext->amount = AMOUNT;
 		scheduleContext->description = "Description of schedule";
