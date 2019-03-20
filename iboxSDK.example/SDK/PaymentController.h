@@ -2,7 +2,6 @@
 #define PAYMENTCONTROLLER_H_
 
 #include "Result.h"
-#include "WebObject.h"
 
 // enums
 typedef enum
@@ -35,18 +34,30 @@ typedef struct {
 	Ibox_Product *product;
 	Ibox_ProductField **productData;
 	Ibox_Acquirer *acquirer;
+	Ibox_Tag **tags;
+	const char *receiptEmail;
+	const char *receiptPhone;
+	const char *acquirerCode;
 	const char *purchasesJson;
 	const char *description;
+	const char *tagsJson;
 	double amount;
 	int linkedCardId;
 	int purchasesCount;
 	int productDataCount;
+	int tagsCount;
 	int singleStepAuth;
 } Ibox_PaymentContext;
 
 typedef struct {
+	Ibox_Purchase **purchases;
+	Ibox_Tag **tags;
 	const char *transactionId;
+	const char *purchasesJson;
+	const char *tagsJson;
 	double amountReverse;
+	int purchasesCount;
+	int tagsCount;
 	int forceReturn;
 } Ibox_ReverseContext;
 
@@ -130,8 +141,16 @@ Ibox_Result *Ibox_PaymentController_AdjustPayment(const char *transactionId, con
 Ibox_Result *Ibox_PaymentController_AdjustReverse(const char *transactionId, const char *receiptPhone, const char *receiptEmail);
 Ibox_Result *Ibox_PaymentController_AdjustSchedule(const char *scheduleId, const char *receiptPhone, const char *receiptEmail);
 
+// fiscalize
+Ibox_Result *Ibox_PaymentController_Fiscalize(const char *transactionId);
+
+// prepare
+Ibox_Result_Prepare *Ibox_PaymentController_Prepare(Ibox_Product *product, Ibox_ProductField **productData, int productDataCount);
+
 // other
-void Ibox_PaymentController_SetDebugEnabled(int debugEnabled);
 char *Ibox_PaymentController_Version();
+void Ibox_PaymentController_CancelGetCardData();
+void Ibox_PaymentController_SetDebugEnabled(int debugEnabled);
+int Ibox_PaymentController_IsReaderConected();
 
 #endif

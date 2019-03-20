@@ -46,8 +46,10 @@ typedef struct {
 // structures web
 typedef struct {
 	Ibox_Account *account;
+	Ibox_Product **products;
     const char *errorMessage;
     int errorCode;
+    int productsCount;
 } Ibox_Result_Authentication;
 
 typedef struct {
@@ -90,5 +92,13 @@ typedef struct {
 	int errorCode;
 	int transactionsCount;
 } Ibox_Result_Transactions;
+
+typedef struct {
+	Ibox_ProductField **fields;
+    const char *errorMessage;
+    double amount;
+    int errorCode;
+    int fieldsCount;
+} Ibox_Result_Prepare;
 
 #endif

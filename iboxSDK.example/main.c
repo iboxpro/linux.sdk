@@ -3,35 +3,244 @@
 #include "hw.h"
 #include "SDK/PaymentController.h"
 
-#define DEBUG_ENABLED 			1
-#define AUTH                    1
-#define GET_READER_INFO         1
-#define TEST_LINKED_CARD 		0
-#define TEST_CARD_PAYMENT 		1
-#define TEST_SCHEDULE			0
-#define TEST_REVERSE			0
-#define TEST_PURCHASES			0
-#define TEST_PRODUCT			0
-#define TEST_TRANSACTION		0
+#define DEBUG_ENABLED 					1
+#define AUTH                    		1
+#define GET_READER_INFO         		0
+#define TEST_LINKED_CARD 				0
+#define TEST_CARD_PAYMENT 				1
+#define TEST_SCHEDULE					0
+#define TEST_REVERSE					0
+#define TEST_PURCHASES					0
+#define TEST_PRODUCT					0
+#define TEST_TAGS						0
+#define TEST_TRANSACTION				0
+#define TEST_FISCALIZE					0
+#define TEST_PREPARE					0
+#define TEST_REVERSE_LAST_TRANSACTION 	0
 
-#define EMAIL            		""
-#define SECRET_KEY			""
-#define AMOUNT				1.0
-#define TRANSACTION_ID			"871ED4D1-DCA4-4E69-AD2A-5E0743ACBBA8"
+#define EMAIL            				""
+#define SECRET_KEY					""
+#define AMOUNT						1.0
+#define AMOUNT_REVERSE					0.0
+#define TRANSACTION_ID					"2f809619-d26f-48f2-a523-8a5044224400"
+#define receiptPhone					"test@mail.de"
+#define RECEIPT_PHONE					"+73211232312"
+#define ACQUIRER_CODE					NULL		//"ACQ_CODE"
+#define PRODUCT_FIELD_TEST_DATA			"field data"
+
+// member variables
+const char *mTransactionId = NULL;
 
 void startTransactionAction(const char *transactionId)
 {
+	mTransactionId = transactionId;
 	fprintf(stderr, "TransactionID:%s\n", transactionId);
+}
+
+void addProductData(Ibox_PaymentContext *paymentContext, Ibox_Result_Authentication *authResult)
+{
+	if (paymentContext)
+	{
+		if (authResult && authResult->productsCount)
+		{
+			Ibox_Product *product = NULL;
+			for (int i = 0; i < authResult->productsCount; i++)
+			{
+				Ibox_Product *localProduct = authResult->products[i];
+				if (!localProduct->preparable)
+				{
+					product = localProduct;
+					break;
+				}
+			}
+
+			if (product && product->fieldsCount)
+			{
+				int productDataCount = 0;
+				Ibox_ProductField **buffer = calloc(product->fieldsCount, sizeof(Ibox_ProductField *));
+
+				for (int i = 0; i < product->fieldsCount; i++)
+				{
+					Ibox_ProductField *field = product->fields[i];
+					if (field->state == Ibox_ProductField_State_ENABLED && field->type == Ibox_ProductField_Type_TEXT)
+					{
+						if (field->defaultValue )
+							field->value = field->defaultValue;
+						else
+							field->value = PRODUCT_FIELD_TEST_DATA;
+
+						memcpy(buffer + productDataCount, &field, sizeof(Ibox_ProductField *));
+						productDataCount++;
+					}
+				}
+
+				if (productDataCount)
+				{
+					Ibox_ProductField **productData = calloc(productDataCount, sizeof(Ibox_ProductField *));
+					for (int i = 0; i < productDataCount; i++)
+					{
+						Ibox_ProductField *field = buffer[i];
+						memcpy(productData + i, &field, sizeof(Ibox_ProductField *));
+					}
+
+					paymentContext->product = product;
+					paymentContext->productData = productData;
+					paymentContext->productDataCount = productDataCount;
+				}
+
+				free(buffer);
+			}
+		}
+		else
+		{
+			Ibox_Product *product = calloc(1, sizeof(Ibox_Product));
+			product->title = "Тестовый продукт 1";
+			product->code = "PRODUCT_TEST";
+
+			Ibox_ProductField *field1 = calloc(1, sizeof(Ibox_ProductField));
+			field1->title = "Поле один";
+			field1->code = "FIELD_1";
+			field1->value = "Тестовое значение";
+
+			Ibox_ProductField *field2 = calloc(1, sizeof(Ibox_ProductField));
+			field2->title = "Поле два";
+			field2->code = "FIELD_2";
+			field2->value = "Тестовое значение";
+
+			int productDataCount = 2;
+			Ibox_ProductField **productData = calloc(productDataCount, sizeof(Ibox_ProductField *));
+			memcpy(productData, &field1, sizeof(Ibox_ProductField *));
+			memcpy(productData + 1, &field2, sizeof(Ibox_ProductField *));
+
+			paymentContext->product = product;
+			paymentContext->productData = productData;
+			paymentContext->productDataCount = productDataCount;
+		}
+	}
+}
+
+void addPurchases(Ibox_PaymentContext *paymentContext, Ibox_ReverseContext *reverseContext)
+{
+	if (paymentContext || reverseContext)
+	{
+		/*
+		Ibox_Purchase *purchase1 = calloc(1, sizeof(Ibox_Purchase));
+
+		Ibox_Tag *tag1 = calloc(1, sizeof(Ibox_Tag));
+		tag1->code = "1030";
+		tag1->value = "Позиция 1";
+
+		Ibox_Tag *tag2 = calloc(1, sizeof(Ibox_Tag));
+		tag2->code = "1079";
+		tag2->value = "120.0";
+
+		Ibox_Tag *tag3 = calloc(1, sizeof(Ibox_Tag));
+		tag3->code = "1023";
+		tag3->value = "2";
+
+		Ibox_Tag *tag4 = calloc(1, sizeof(Ibox_Tag));
+		tag4->code = "1199";
+		tag4->value = "2";
+
+		int tagsCount = 4;
+		Ibox_Tag **tags = calloc(tagsCount, sizeof(Ibox_Tag *));
+		memcpy(tags, &tag1, sizeof(Ibox_Tag *));
+		memcpy(tags + 1, &tag2, sizeof(Ibox_Tag *));
+		memcpy(tags + 2, &tag3, sizeof(Ibox_Tag *));
+		memcpy(tags + 3, &tag4, sizeof(Ibox_Tag *));
+
+		purchase1->tagsCount = tagsCount;
+		purchase1->tags = tags;
+
+		Ibox_Purchase *purchase2 = calloc(1, sizeof(Ibox_Purchase));
+		purchase2->title = "Позиция 2";
+		purchase2->price = 100.0;
+		purchase2->quantity = 1.2;
+		int taxesCount = 1;
+		char **taxes = calloc(taxesCount, sizeof(char *));
+		char *tax = "VAT1800";
+		memcpy(taxes, &tax, sizeof(char *));
+		purchase2->taxesCount = taxesCount;
+		purchase2->taxes = taxes;
+
+		int purchasesCount = 2;
+		Ibox_Purchase **purchases = calloc(purchasesCount, sizeof(Ibox_Purchase *));
+		memcpy(purchases, &purchase1, sizeof(Ibox_Purchase *));
+		memcpy(purchases + 1, &purchase2, sizeof(Ibox_Purchase *));
+
+		if (paymentContext)
+		{
+			paymentContext->purchasesCount = purchasesCount;
+			paymentContext->purchases = purchases;
+		}
+		else if (reverseContext)
+		{
+			reverseContext->purchasesCount = purchasesCount;
+			reverseContext->purchases = purchases;
+		}
+		*/
+
+		//amount = 380
+		const char *purchasesJson = "{\"Purchases\": [{\"1030\": \"Позиция 1\", \"1079\": 120, \"1023\": 2, \"1199\": 2}, {\"Title\": \"Позиция 2\", \"Price\": 100, \"Quantity\": 1.4, \"TaxCode\": [\"VAT1800\"]}]}";
+		//amount = 190
+		//const char *purchasesJson = "{\"Purchases\": [{\"1030\": \"Позиция 1\", \"1079\": 120, \"1023\": 1, \"1199\": 2}, {\"Title\": \"Позиция 2\", \"Price\": 100, \"Quantity\": 0.7, \"TaxCode\": [\"VAT1800\"]}]}";
+		if (paymentContext)
+			paymentContext->purchasesJson = purchasesJson;
+		else if (reverseContext)
+			reverseContext->purchasesJson = purchasesJson;
+	}
+}
+
+void addTags(Ibox_PaymentContext *paymentContext, Ibox_ReverseContext *reverseContext)
+{
+	if (paymentContext || reverseContext)
+	{
+		/*
+		Ibox_Tag *tag1 = calloc(1, sizeof(Ibox_Tag));
+		tag1->code = "1005";
+		tag1->value = "Тcет666";
+
+
+		Ibox_Tag *tag2 = calloc(1, sizeof(Ibox_Tag));
+		tag2->code = "1008";
+		tag2->value = "email@test.moc";
+
+		int tagsCount = 2;
+		Ibox_Tag **tags = calloc(tagsCount, sizeof(Ibox_Tag *));
+		memcpy(tags, &tag1, sizeof(Ibox_Tag *));
+		memcpy(tags + 1, &tag2, sizeof(Ibox_Tag *));
+
+		if (paymentContext)
+		{
+			paymentContext->tagsCount = tagsCount;
+			paymentContext->tags = tags;
+		}
+		else if (reverseContext)
+		{
+			reverseContext->tagsCount = tagsCount;
+			reverseContext->tags = tags;
+		}
+		*/
+
+		const char *tagsJson = "{\"1005\": \"тсет джсон\", \"1008\": \"emailJS@test.moc\"}";
+		if (paymentContext)
+			paymentContext->tagsJson = tagsJson;
+		else if (reverseContext)
+			reverseContext->tagsJson = tagsJson;
+	}
 }
 
 int main(void)
 {
+	Ibox_Result_Authentication *authResult = NULL;
 	Ibox_PaymentController_SetSendWebRequestAction(&sendWebRequest);
 	Ibox_PaymentController_SetSendReaderRequestAction(&sendReaderRequest);
 	Ibox_PaymentController_SetStartTransactionAction(&startTransactionAction);
 	Ibox_PaymentController_SetCredentials(EMAIL, SECRET_KEY);
 	Ibox_PaymentController_SetDebugEnabled(DEBUG_ENABLED);
 	Ibox_PaymentController_ReaderSoundEnabled(1);
+
+	mTransactionId = NULL;
 
 	fprintf(stderr, "Version:%s\n", Ibox_PaymentController_Version());
 
@@ -69,10 +278,10 @@ int main(void)
 	{
 		fprintf(stderr, "Authenticating.\n");
 
-		Ibox_Result_Authentication *authenticationResul = Ibox_PaymentController_Authentication();
-		if (!authenticationResul->errorCode)
+		authResult = Ibox_PaymentController_Authentication();
+		if (!authResult->errorCode)
 		{
-			Ibox_Account *account = authenticationResul->account;
+			Ibox_Account *account = authResult->account;
 			if (account)
 			{
 				fprintf(stderr, "Account data:\n%s\n", account->name);
@@ -89,10 +298,8 @@ int main(void)
 		}
 		else
 		{
-			fprintf(stderr, "Authentication error:\n%s\n", authenticationResul->errorMessage);
+			fprintf(stderr, "Authentication error:\n%s\n", authResult->errorMessage);
 		}
-
-		free(authenticationResul);
 
 		fprintf(stderr, "\n\n");
 	}
@@ -112,127 +319,80 @@ int main(void)
 			}
 		}
 
-		fprintf(stderr, "Link a card.\n");
-		Ibox_Result_ReaderCheckCard *readerCheckCardResult = Ibox_PaymentController_GetCardData();
-		if (!readerCheckCardResult->errorCode)
+		if (!Ibox_PaymentController_IsReaderConected())
 		{
-			Ibox_Result_AddLinkedCard *addLinkedCardResult = Ibox_PaymentController_AddLinkedCardWithReaderData(readerCheckCardResult);
-			if (!addLinkedCardResult->errorCode)
-			{
-				Ibox_LinkedCard *linkedCard = addLinkedCardResult->linkedCard;
-				fprintf(stderr, "Linked card data:\n");
-
-				fprintf(stderr, "CardholderName: %s\n", linkedCard->cardholderName);
-				fprintf(stderr, "PANMasked: %s\n", linkedCard->panMasked);
-				fprintf(stderr, "CardType: %s\n", linkedCard->cardType);
-				fprintf(stderr, "CardExp: %s\n", linkedCard->cardExpiration);
-
-				Ibox_PaymentContext *paymentContext = calloc(1, sizeof(Ibox_PaymentContext));
-				paymentContext->inputType = Ibox_PaymentController_InputType_LINKED_CARD;
-				paymentContext->amount = AMOUNT;
-				paymentContext->description = "Description of transaction";
-				paymentContext->linkedCardId = linkedCard->id;
-				paymentContext->purchasesCount = 0;
-				paymentContext->purchases = NULL;
-				paymentContext->purchasesJson = NULL;
-				paymentContext->product = NULL;
-				paymentContext->productData = NULL;
-				paymentContext->productDataCount = 0;
-				paymentContext->acquirer = NULL;
-				paymentContext->singleStepAuth = 1;
-
-				if (TEST_PURCHASES)
-				{
-					Ibox_Purchase *purchase1 = calloc(1, sizeof(Ibox_Purchase));
-					purchase1->title = "Позиция 1";
-					purchase1->price = 120.0;
-					purchase1->quantity = 2.5;
-					int taxes1Count = 1;
-					char **taxes1 = calloc(taxes1Count, sizeof(char *));
-					char *tax = "VAT1800";
-					memcpy(taxes1, &tax, sizeof(char *));
-					purchase1->taxesCount = taxes1Count;
-					purchase1->taxes = taxes1;
-
-					Ibox_Purchase *purchase2 = calloc(1, sizeof(Ibox_Purchase));
-					purchase2->title = "Позиция 2";
-					purchase2->price = 100.0;
-					purchase2->quantity = 1.2;
-					purchase2->taxesCount = 0;
-					purchase2->taxes = NULL;
-
-					int purchasesCount = 2;
-					Ibox_Purchase **purchases = calloc(purchasesCount, sizeof(Ibox_Purchase *));
-					memcpy(purchases, &purchase1, sizeof(Ibox_Purchase *));
-					memcpy(purchases + 1, &purchase2, sizeof(Ibox_Purchase *));
-
-					paymentContext->purchasesCount = purchasesCount;
-					paymentContext->purchases = purchases;
-				}
-
-				if (TEST_PRODUCT)
-				{
-					Ibox_Product *product = calloc(1, sizeof(Ibox_Product));
-					product->title = "Тестовый продукт 1";
-					product->code = "PRODUCT_TEST";
-
-					Ibox_ProductField *field1 = calloc(1, sizeof(Ibox_ProductField));
-					field1->title = "Поле один";
-					field1->code = "FIELD_1";
-					field1->value = "Тестовое значение";
-
-					Ibox_ProductField *field2 = calloc(1, sizeof(Ibox_ProductField));
-					field2->title = "Поле два";
-					field2->code = "FIELD_2";
-					field2->value = "Тестовое значение";
-
-					int productDataCount = 2;
-					Ibox_ProductField **productData = calloc(productDataCount, sizeof(Ibox_ProductField *));
-					memcpy(productData, &field1, sizeof(Ibox_ProductField *));
-					memcpy(productData + 1, &field2, sizeof(Ibox_ProductField *));
-
-					paymentContext->product = product;
-					paymentContext->productData = productData;
-					paymentContext->productDataCount = productDataCount;
-				}
-
-				Ibox_Result_Submit *submitResult = Ibox_PaymentController_StartPayment(paymentContext);
-				if (!submitResult->errorCode)
-				{
-					fprintf(stderr, "Payment done!\n");
-				}
-				else
-				{
-					fprintf(stderr, "Payment error: %s\n", submitResult->errorMessage);
-				}
-
-				free(submitResult);
-				free(paymentContext);
-
-				Ibox_Result *removeLinkedCardResult = Ibox_PaymentController_RemoveLinkedCard(linkedCard->id);
-				if (!removeLinkedCardResult->errorCode)
-				{
-					fprintf(stderr, "Remove linked card done!\n");
-				}
-				else
-				{
-					fprintf(stderr, "Remove linked card error: %s\n", removeLinkedCardResult->errorMessage);
-				}
-				free(removeLinkedCardResult);
-			}
-			else
-			{
-				fprintf(stderr, "Add linked card error:\n%s\n", addLinkedCardResult->errorMessage);
-			}
+			fprintf(stderr, "Reader disconnected.\n");
 		}
 		else
 		{
-			fprintf(stderr, "Reader check card error:\n%s\n", readerCheckCardResult->errorMessage);
+			fprintf(stderr, "Link a card.\n");
+			Ibox_Result_ReaderCheckCard *readerCheckCardResult = Ibox_PaymentController_GetCardData();
+			if (!readerCheckCardResult->errorCode)
+			{
+				Ibox_Result_AddLinkedCard *addLinkedCardResult = Ibox_PaymentController_AddLinkedCardWithReaderData(readerCheckCardResult);
+				if (!addLinkedCardResult->errorCode)
+				{
+					Ibox_LinkedCard *linkedCard = addLinkedCardResult->linkedCard;
+					fprintf(stderr, "Linked card data:\n");
+
+					fprintf(stderr, "CardholderName: %s\n", linkedCard->cardholderName);
+					fprintf(stderr, "PANMasked: %s\n", linkedCard->panMasked);
+					fprintf(stderr, "CardType: %s\n", linkedCard->cardType);
+					fprintf(stderr, "CardExp: %s\n", linkedCard->cardExpiration);
+
+					Ibox_PaymentContext *paymentContext = calloc(1, sizeof(Ibox_PaymentContext));
+					paymentContext->inputType = Ibox_PaymentController_InputType_LINKED_CARD;
+					paymentContext->amount = AMOUNT;
+					paymentContext->description = "Description of transaction";
+					paymentContext->linkedCardId = linkedCard->id;
+					paymentContext->singleStepAuth = 1;
+					paymentContext->receiptEmail = RECEIPT_EMAIL;
+					paymentContext->receiptPhone = RECEIPT_PHONE;
+					paymentContext->acquirerCode = ACQUIRER_CODE;
+
+					if (TEST_PURCHASES)
+						addPurchases(paymentContext, NULL);
+
+					if (TEST_PRODUCT)
+						addProductData(paymentContext, authResult);
+
+					Ibox_Result_Submit *submitResult = Ibox_PaymentController_StartPayment(paymentContext);
+					if (!submitResult->errorCode)
+					{
+						fprintf(stderr, "Payment done!\n");
+					}
+					else
+					{
+						fprintf(stderr, "Payment error: %s\n", submitResult->errorMessage);
+					}
+
+					free(submitResult);
+					free(paymentContext);
+
+					Ibox_Result *removeLinkedCardResult = Ibox_PaymentController_RemoveLinkedCard(linkedCard->id);
+					if (!removeLinkedCardResult->errorCode)
+					{
+						fprintf(stderr, "Remove linked card done!\n");
+					}
+					else
+					{
+						fprintf(stderr, "Remove linked card error: %s\n", removeLinkedCardResult->errorMessage);
+					}
+					free(removeLinkedCardResult);
+				}
+				else
+				{
+					fprintf(stderr, "Add linked card error:\n%s\n", addLinkedCardResult->errorMessage);
+				}
+			}
+			else
+			{
+				fprintf(stderr, "Reader check card error:\n%s\n", readerCheckCardResult->errorMessage);
+			}
+			free(readerCheckCardResult);
 		}
-		free(readerCheckCardResult);
 
 		fprintf(stderr, "\n\n");
-
 	}
 
 	if (TEST_CARD_PAYMENT)
@@ -244,70 +404,19 @@ int main(void)
 		paymentContext->currencyType = Ibox_PaymentController_CurrencyType_RUB;
 		paymentContext->amount = AMOUNT;
 		paymentContext->description = "Description of transaction";
-		paymentContext->linkedCardId = 0;
-		paymentContext->purchasesCount = 0;
-		paymentContext->purchases = NULL;
-		paymentContext->purchasesJson = NULL;
-		paymentContext->product = NULL;
-		paymentContext->productData = NULL;
-		paymentContext->productDataCount = 0;
-		paymentContext->acquirer = NULL;
 		paymentContext->singleStepAuth = 1;
+		paymentContext->receiptEmail = RECEIPT_EMAIL;
+		paymentContext->receiptPhone = RECEIPT_PHONE;
+		paymentContext->acquirerCode = ACQUIRER_CODE;
+
+		if (TEST_TAGS)
+			addTags(paymentContext, NULL);
 
 		if (TEST_PURCHASES)
-		{
-			Ibox_Purchase *purchase1 = calloc(1, sizeof(Ibox_Purchase));
-			purchase1->title = "Позиция 1";
-			purchase1->price = 120.0;
-			purchase1->quantity = 2.5;
-			int taxes1Count = 1;
-			char **taxes1 = calloc(taxes1Count, sizeof(char *));
-			char *tax = "VAT1800";
-			memcpy(taxes1, &tax, sizeof(char *));
-			purchase1->taxesCount = taxes1Count;
-			purchase1->taxes = taxes1;
-
-			Ibox_Purchase *purchase2 = calloc(1, sizeof(Ibox_Purchase));
-			purchase2->title = "Позиция 2";
-			purchase2->price = 100.0;
-			purchase2->quantity = 1.2;
-			purchase2->taxesCount = 0;
-			purchase2->taxes = NULL;
-
-			int purchasesCount = 2;
-			Ibox_Purchase **purchases = calloc(purchasesCount, sizeof(Ibox_Purchase *));
-			memcpy(purchases, &purchase1, sizeof(Ibox_Purchase *));
-			memcpy(purchases + 1, &purchase2, sizeof(Ibox_Purchase *));
-
-			paymentContext->purchasesCount = purchasesCount;
-			paymentContext->purchases = purchases;
-		}
+			addPurchases(paymentContext, NULL);
 
 		if (TEST_PRODUCT)
-		{
-			Ibox_Product *product = calloc(1, sizeof(Ibox_Product));
-			product->title = "Тестовый продукт 1";
-			product->code = "PRODUCT_TEST";
-
-			Ibox_ProductField *field1 = calloc(1, sizeof(Ibox_ProductField));
-			field1->title = "Поле один";
-			field1->code = "FIELD_1";
-			field1->value = "Тестовое значение";
-
-			Ibox_ProductField *field2 = calloc(1, sizeof(Ibox_ProductField));
-			field2->title = "Поле два";
-			field2->code = "FIELD_2";
-			field2->value = "Тестовое значение";
-
-			int productDataCount = 2;
-			Ibox_ProductField **productData = calloc(productDataCount, sizeof(Ibox_ProductField *));
-			memcpy(productData, &field1, sizeof(Ibox_ProductField *));
-			memcpy(productData + 1, &field2, sizeof(Ibox_ProductField *));
-
-			paymentContext->product = product;
-			paymentContext->productData = productData;
-			paymentContext->productDataCount = productDataCount;
-		}
+			addProductData(paymentContext, authResult);
 
 		Ibox_Result_Submit *submitResult = Ibox_PaymentController_StartPayment(paymentContext);
 		if (!submitResult->errorCode)
@@ -322,12 +431,27 @@ int main(void)
 
 	if (TEST_REVERSE)
 	{
-		if (TRANSACTION_ID)
+		const char *transactionId = NULL;
+		if (TEST_REVERSE_LAST_TRANSACTION && mTransactionId)
+			transactionId = mTransactionId;
+		else
+			transactionId = TRANSACTION_ID;
+
+		if (transactionId)
 		{
 			Ibox_ReverseContext *reverseContext = calloc(1, sizeof(Ibox_ReverseContext));
-			reverseContext->transactionId = TRANSACTION_ID;
-			reverseContext->amountReverse = 0.0;
+			reverseContext->transactionId = transactionId;
+			reverseContext->amountReverse = AMOUNT_REVERSE;
 			reverseContext->forceReturn = 0;
+			reverseContext->purchasesCount = 0;
+			reverseContext->purchases = NULL;
+			reverseContext->purchasesJson = NULL;
+
+			if (TEST_PURCHASES)
+				addPurchases(NULL, reverseContext);
+
+			if (TEST_TAGS)
+				addTags(NULL, reverseContext);
 
 			Ibox_Result_Reverse *reverseResult = Ibox_PaymentController_StartReverse(reverseContext);
 			if (!reverseResult->errorCode)
@@ -391,6 +515,107 @@ int main(void)
 			}
 		}
 	}
+
+	if (TEST_FISCALIZE)
+	{
+		Ibox_Result *fiscalizeResult = Ibox_PaymentController_Fiscalize(TRANSACTION_ID);
+		if (!fiscalizeResult->errorCode)
+		{
+			fprintf(stderr, "Fiscalization done.");
+		}
+	}
+
+	if (TEST_PREPARE)
+	{
+		if (authResult && authResult->productsCount)
+		{
+			Ibox_Product *product = NULL;
+			for (int i = 0; i < authResult->productsCount; i++)
+			{
+				Ibox_Product *localProduct = authResult->products[i];
+				if (localProduct->preparable)
+				{
+					product = localProduct;
+					break;
+				}
+			}
+
+			if (product && product->fieldsCount)
+			{
+				Ibox_ProductField **productPrepareData = calloc(1, sizeof(Ibox_ProductField *));
+				Ibox_ProductField *field = product->preparableField;
+				if (field->defaultValue)
+					field->value = field->defaultValue;
+				else
+					field->value = PRODUCT_FIELD_TEST_DATA;
+				memcpy(productPrepareData, &field, sizeof(Ibox_ProductField *));
+
+				Ibox_Result_Prepare *prepareResult = Ibox_PaymentController_Prepare(product, productPrepareData, 1);
+				if (!prepareResult->errorCode)
+				{
+					Ibox_PaymentContext *paymentContext = calloc(1, sizeof(Ibox_PaymentContext));
+					paymentContext->inputType = Ibox_PaymentController_InputType_CARD;
+					paymentContext->currencyType = Ibox_PaymentController_CurrencyType_RUB;
+					paymentContext->amount = prepareResult->amount;
+					paymentContext->receiptEmail = RECEIPT_EMAIL;
+					paymentContext->receiptPhone = RECEIPT_PHONE;
+					paymentContext->acquirerCode = ACQUIRER_CODE;
+
+					if (prepareResult->fieldsCount)
+					{
+						int productDataCount = 0;
+						Ibox_ProductField **buffer = calloc(product->fieldsCount, sizeof(Ibox_ProductField *));
+
+						for (int i = 0; i < product->fieldsCount; i++)
+						{
+							Ibox_ProductField *field = product->fields[i];
+							for (int i = 0; i < prepareResult->fieldsCount; i++)
+							{
+								Ibox_ProductField *prepareField = prepareResult->fields[i];
+								if (!strcmp(field->code, prepareField->code))
+								{
+									field->value = prepareField->value;
+									memcpy(buffer + productDataCount, &field, sizeof(Ibox_ProductField *));
+									productDataCount++;
+									break;
+								}
+							}
+						}
+
+						if (productDataCount)
+						{
+							Ibox_ProductField **productData = calloc(productDataCount, sizeof(Ibox_ProductField *));
+							for (int i = 0; i < productDataCount; i++)
+							{
+								Ibox_ProductField *field = buffer[i];
+								memcpy(productData + i, &field, sizeof(Ibox_ProductField *));
+							}
+
+							paymentContext->product = product;
+							paymentContext->productData = productData;
+							paymentContext->productDataCount = productDataCount;
+
+							Ibox_Result_Submit *submitResult = Ibox_PaymentController_StartPayment(paymentContext);
+							if (!submitResult->errorCode)
+								fprintf(stderr, "Payment done!\n");
+							else
+								fprintf(stderr, "Payment error: %s\n", submitResult->errorMessage);
+						}
+
+						free(buffer);
+					}
+				}
+				else
+					fprintf(stderr, "Prepare error: %s\n", prepareResult->errorMessage);
+
+				free(prepareResult);
+				free(productPrepareData);
+			}
+		}
+	}
+
+	if (authResult)
+		free(authResult);
 
 	return 0;
 }

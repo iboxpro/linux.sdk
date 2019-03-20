@@ -24,7 +24,7 @@ typedef enum
 	Ibox_Transaction_ReverseMode_CANCEL_PARTIAL = 4,
 	Ibox_Transaction_ReverseMode_CANCEL_CNP = 5,
 	Ibox_Transaction_ReverseMode_CANCEL_CNP_PARTIAL = 6,
-	Ibox_Transaction_ReverseMode_AUTO_REVERSE = 7,
+	Ibox_Transaction_ReverseMode_AUTO_REVERSE = 7
 } Ibox_Transaction_ReverseMode;
 
 typedef enum
@@ -65,6 +65,19 @@ typedef enum
 	Ibox_FiscalInfo_Status_SUCCESS = 2,
 	Ibox_FiscalInfo_Status_FAILURE = 4
 } Ibox_FiscalInfo_Status;
+
+typedef enum
+{
+	Ibox_ProductField_Type_NONE = 0,
+	Ibox_ProductField_Type_TEXT = 1,
+	Ibox_ProductField_Type_IMAGE = 2
+} Ibox_ProductField_Type;
+
+typedef enum
+{
+	Ibox_ProductField_State_DISABLED = 0,
+	Ibox_ProductField_State_ENABLED = 1
+} Ibox_ProductField_State;
 
 typedef enum
 {
@@ -122,6 +135,7 @@ typedef struct
 	const char *stateLine1;
 	const char *stateLine2;
 	const char *invoice;
+	const char *purchasesJson;
 	double amount;
 	double amountEff;
 	int currencyDecimalsCount;
@@ -161,28 +175,48 @@ typedef struct
 
 typedef struct
 {
+	const char *code;
+	const char *value;
+	double doubleValue;
+	int intValue;
+} Ibox_Tag;
+
+typedef struct
+{
+	Ibox_Tag **tags;
 	const char *title;
 	char **taxes;
 	double price;
 	double quantity;
 	int taxesCount;
+	int tagsCount;
 } Ibox_Purchase;
 
 typedef struct
 {
-	const char *title;
-	const char *code;
-} Ibox_Product;
-
-typedef struct
-{
+	Ibox_ProductField_State state;
+	Ibox_ProductField_Type type;
 	const char *title;
 	const char *code;
 	const char *textMask;
 	const char *textRegExp;
 	const char *defaultValue;
 	const char *value;
+	int required;
+	int preparable;
+	int userVisible;
+	int numeric;
 } Ibox_ProductField;
+
+typedef struct
+{
+	Ibox_ProductField **fields;
+	Ibox_ProductField *preparableField;
+	const char *title;
+	const char *code;
+	int fieldsCount;
+	int preparable;
+} Ibox_Product;
 
 typedef struct
 {
