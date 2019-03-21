@@ -23,7 +23,7 @@
 #define AMOUNT						1.0
 #define AMOUNT_REVERSE					0.0
 #define TRANSACTION_ID					"2f809619-d26f-48f2-a523-8a5044224400"
-#define receiptPhone					"test@mail.de"
+#define RECEIPT_EMAIL					"test@mail.de"
 #define RECEIPT_PHONE					"+73211232312"
 #define ACQUIRER_CODE					NULL		//"ACQ_CODE"
 #define PRODUCT_FIELD_TEST_DATA			"field data"
