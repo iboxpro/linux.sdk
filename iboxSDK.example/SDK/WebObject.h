@@ -60,6 +60,18 @@ typedef enum
 
 typedef enum
 {
+	Ibox_Card_Type_DEFAULT,
+	Ibox_Card_Type_CASH,
+	Ibox_Card_Type_PREPAID,
+	Ibox_Card_Type_CREDIT,
+	Ibox_Card_Type_OUTER_CARD,
+	Ibox_Card_Type_VISA,
+	Ibox_Card_Type_MASTER,
+	Ibox_Card_Type_MIR
+} Ibox_Card_Type;
+
+typedef enum
+{
 	Ibox_FiscalInfo_Status_NONE = 0,
 	Ibox_FiscalInfo_Status_CREATED = 1,
 	Ibox_FiscalInfo_Status_SUCCESS = 2,
@@ -101,6 +113,19 @@ typedef enum
 // structures
 typedef struct
 {
+	Ibox_Card_Type type;
+	const char *iin;
+	const char *bin;
+	const char *binId;
+	const char *expiration;
+	const char *panMasked;
+	const char *panEnding;
+	const char *bankName;
+	const char *bankCountryId;
+} Ibox_Card;
+
+typedef struct
+{
 	Ibox_FiscalInfo_Status status;
 	const char *printerSerialNumber;
 	const char *printerRegisterNumber;
@@ -117,11 +142,86 @@ typedef struct
 
 typedef struct
 {
+	Ibox_ProductField_State state;
+	Ibox_ProductField_Type type;
+	const char *title;
+	const char *code;
+	const char *textMask;
+	const char *textRegExp;
+	const char *defaultValue;
+	const char *value;
+	int required;
+	int preparable;
+	int userVisible;
+	int numeric;
+} Ibox_ProductField;
+
+typedef struct
+{
+	Ibox_ProductField **fields;
+	Ibox_ProductField *preparableField;
+	const char *title;
+	const char *code;
+	int fieldsCount;
+	int preparable;
+} Ibox_Product;
+
+typedef struct
+{
+	const char *code;
+	const char *value;
+	double doubleValue;
+	int intValue;
+} Ibox_Tag;
+
+typedef struct
+{
+	Ibox_Tag **tags;
+	const char *title;
+	char **taxes;
+	double price;
+	double quantity;
+	double titleAmount;
+	int taxesCount;
+	int tagsCount;
+} Ibox_Purchase;
+
+typedef struct
+{
+	const char *id;
+	const char *title;
+	const char *priceName;
+	const char *categoryName;
+	const char *imageUrlTn;
+	const char *amountFormat;
+	const char *currencySign;
+	double price;
+	double unitPrice;
+	int hasImage;
+	int count;
+} Ibox_InventoryProduct;
+
+typedef struct
+{
+	const char *key;
+	const char *value;
+} Ibox_EmvTag;
+
+typedef struct
+{
+	Ibox_Card *card;
+	Ibox_FiscalInfo *fiscalInfo;
 	Ibox_Transaction_InputType inputType;
 	Ibox_Transaction_ReverseMode reverseMode;
 	Ibox_Transaction_DisplayMode displayMode;
 	Ibox_Transaction_SubstateStyle substateStyle;
-	Ibox_FiscalInfo *fiscalInfo;
+	Ibox_InventoryProduct **products;
+	Ibox_Product *customFieldsProduct;
+	Ibox_ProductField **customFields;
+	Ibox_EmvTag **emvData;
+	Ibox_Purchase **purchases;
+	Ibox_Tag **tags;
+	const char *auxData;
 	const char *id;
 	const char *date;
 	const char *currencyId;
@@ -135,12 +235,40 @@ typedef struct
 	const char *stateLine1;
 	const char *stateLine2;
 	const char *invoice;
-	const char *purchasesJson;
+	const char *signatureUrl;
+	const char *photoUrl;
+	const char *scheduleId;
+	const char *scheduleStepId;
+	const char *approvalCode;
+	const char *operation;
+	const char *cardholderName;
+	const char *terminalName;
+	const char *acquirerId;
+	const char *rrn;
 	double amount;
+	double amountNetto;
 	double amountEff;
+	double feeTotal;
+	double latitude;
+	double longitude;
+	int hasSignature;
+	int hasPhoto;
+	int hasGPSData;
+	int withOrder;
+	int withCustomFields;
+	int withPurchases;
+	int withTags;
+	int cashPayment;
+	int acceptReverseEMV;
+	int acceptReverseNFC;
 	int currencyDecimalsCount;
-	int substate;
 	int state;
+	int substate;
+	int productsCount;
+	int customFieldsCount;
+	int emvDataCount;
+	int purchasesCount;
+	int tagsCount;
 } Ibox_Transaction;
 
 typedef struct
@@ -172,51 +300,6 @@ typedef struct
 	Ibox_Transaction_InputType inputType;
 	Ibox_Acquirer *acquirer;
 } Ibox_PaymentOption;
-
-typedef struct
-{
-	const char *code;
-	const char *value;
-	double doubleValue;
-	int intValue;
-} Ibox_Tag;
-
-typedef struct
-{
-	Ibox_Tag **tags;
-	const char *title;
-	char **taxes;
-	double price;
-	double quantity;
-	int taxesCount;
-	int tagsCount;
-} Ibox_Purchase;
-
-typedef struct
-{
-	Ibox_ProductField_State state;
-	Ibox_ProductField_Type type;
-	const char *title;
-	const char *code;
-	const char *textMask;
-	const char *textRegExp;
-	const char *defaultValue;
-	const char *value;
-	int required;
-	int preparable;
-	int userVisible;
-	int numeric;
-} Ibox_ProductField;
-
-typedef struct
-{
-	Ibox_ProductField **fields;
-	Ibox_ProductField *preparableField;
-	const char *title;
-	const char *code;
-	int fieldsCount;
-	int preparable;
-} Ibox_Product;
 
 typedef struct
 {

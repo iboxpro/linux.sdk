@@ -132,7 +132,7 @@ Ibox_MemoryStruct *sendWebRequest(const char *request, const char *url)
 {
 	MemoryStruct *chunk = sendRequest(url, request);
 
-	Ibox_MemoryStruct *response = malloc(sizeof(Ibox_MemoryStruct));
+	Ibox_MemoryStruct *response = calloc(1, sizeof(Ibox_MemoryStruct));
 	response->length = chunk ? chunk->size : 0;
 	response->data = chunk ? chunk->memory : NULL;
 
@@ -141,12 +141,15 @@ Ibox_MemoryStruct *sendWebRequest(const char *request, const char *url)
 
 Ibox_MemoryStruct *sendReaderRequest(char *request, int length)
 {
+	Ibox_MemoryStruct *response = NULL;
+
 	uint16_t responseLength = 0;
 	char *responseData = sendData(request, length, &responseLength);
-
-	Ibox_MemoryStruct *response = malloc(sizeof(Ibox_MemoryStruct));
-	response->length = responseLength;
-	response->data = responseData;
-
+	if (responseData)
+	{
+		response = calloc(1, sizeof(Ibox_MemoryStruct));
+		response->length = responseLength;
+		response->data = responseData;
+	}
 	return response;
 }

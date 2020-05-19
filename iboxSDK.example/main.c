@@ -2,6 +2,7 @@
 
 #include "hw.h"
 #include "SDK/PaymentController.h"
+#include "SDK/WebObject.h"
 
 #define DEBUG_ENABLED 					1
 #define AUTH                    		1
@@ -20,21 +21,248 @@
 
 #define EMAIL            				""
 #define SECRET_KEY					""
-#define AMOUNT						1.0
+#define AMOUNT							23.0
 #define AMOUNT_REVERSE					0.0
-#define TRANSACTION_ID					"2f809619-d26f-48f2-a523-8a5044224400"
+#define TRANSACTION_ID					"CBEC0494-6938-489E-B3FA-FC829C6EAAB0"
 #define RECEIPT_EMAIL					"test@mail.de"
 #define RECEIPT_PHONE					"+73211232312"
 #define ACQUIRER_CODE					NULL		//"ACQ_CODE"
 #define PRODUCT_FIELD_TEST_DATA			"field data"
+#define PRINTER_TAPE_WIDTH_CHARS		32
 
 // member variables
+Ibox_Account *mAccount = NULL;
 const char *mTransactionId = NULL;
 
+// callbacks
 void startTransactionAction(const char *transactionId)
 {
 	mTransactionId = transactionId;
 	fprintf(stderr, "TransactionID:%s\n", transactionId);
+}
+
+int selectEmvApplicationAction(char **emvApplications, int emvApplicationsCount)
+{
+	fprintf(stderr, "selectEmvApplicationAction\n");
+	int selectedIndex = 1;
+	for (int i = 0; i < emvApplicationsCount; i++)
+		fprintf(stderr, "emv app title: %d - %s\n", i, emvApplications[i]);
+	return selectedIndex;
+}
+
+// print slip
+int utf8strlen(const char *p)
+{
+	int l;
+	for (l = 0; *p != 0; ++p)
+	{
+		if ((*p & 0xC0) != 0x80)
+			++l;
+	}
+	return l;
+}
+
+char *createAmountString(double amount, const char *format, const char *currency)
+{
+	char *returnValue = NULL;
+
+	char *digits = calloc(1, sizeof(double));
+	snprintf(digits, sizeof(double), format ? format : "%.2lf", amount);
+
+	if (currency)
+	{
+		int length = strlen(digits) + strlen(currency) + 1;
+		returnValue = calloc(length + 1, sizeof(char));
+		strncpy(returnValue, digits, strlen(digits));
+		strcat(returnValue, " ");
+		strncat(returnValue, currency, strlen(currency));
+		strcat(returnValue, "\0");
+	}
+	else
+	{
+		returnValue = calloc(strlen(digits), sizeof(char));
+		strncpy(returnValue, digits, strlen(digits));
+		strcat(returnValue, "\0");
+	}
+
+	free(digits);
+	return returnValue;
+}
+
+void printKeyValue(const char *key, const char *value)
+{
+	if (key && value)
+	{
+		int keyLength = utf8strlen(key);
+		int valueLength = utf8strlen(value);
+
+		if ((keyLength + valueLength + 1) < PRINTER_TAPE_WIDTH_CHARS)
+		{
+			int spacesLength = PRINTER_TAPE_WIDTH_CHARS - keyLength - valueLength;
+			char *spaces = calloc(spacesLength + 1, sizeof(char));
+			for (int i = 0; i < spacesLength; i++)
+				strcat(spaces, " ");
+			strcat(spaces, "\0");
+			fprintf(stderr, "%s%s%s\n", key, spaces, value);
+			free(spaces);
+		}
+	}
+}
+
+void printCenterText(const char *text)
+{
+	if (text && strlen(text))
+	{
+		int textLength = utf8strlen(text);
+
+		if (textLength == PRINTER_TAPE_WIDTH_CHARS)
+			fprintf(stderr, "%s\n", text);
+		else if (textLength < PRINTER_TAPE_WIDTH_CHARS)
+		{
+			int delta = PRINTER_TAPE_WIDTH_CHARS - textLength;
+			int spacesLength = (int)(delta / 2.0);
+
+			char *spaces = calloc(spacesLength + 1, sizeof(char));
+			for (int i = 0; i < spacesLength; i++)
+				strcat(spaces, " ");
+			strcat(spaces, "\0");
+
+			fprintf(stderr, "%s%s\n", spaces, text);
+			free(spaces);
+		}
+	}
+}
+
+void prinDividertLine(char dividerSign)
+{
+	if (dividerSign)
+	{
+		char *dividerLine = calloc(PRINTER_TAPE_WIDTH_CHARS + 1, sizeof(char));
+		for (int i = 0; i < PRINTER_TAPE_WIDTH_CHARS; i++)
+			dividerLine[i] = dividerSign;
+		dividerLine[PRINTER_TAPE_WIDTH_CHARS] = '\0';
+		fprintf(stderr, "%s\n", dividerLine);
+		free(dividerLine);
+	}
+}
+
+void printSlip(Ibox_Transaction *transaction, Ibox_Account *account, int requireSignature)
+{
+	if (transaction && account)
+	{
+		int isElectronic = 1;
+
+		Ibox_Card *card = transaction->card;
+		if (card)
+		{
+			if (card->type == Ibox_Card_Type_CASH)
+				isElectronic = 0;
+			else if (card->type == Ibox_Card_Type_PREPAID)
+				isElectronic = 0;
+			else if (card->type == Ibox_Card_Type_CREDIT)
+				isElectronic = 0;
+			else if (card->type == Ibox_Card_Type_OUTER_CARD)
+				isElectronic = 0;
+		}
+
+		if (isElectronic)
+		{
+			prinDividertLine('-');
+
+			printCenterText(account->bankName);
+			printCenterText(account->clientName);
+			printCenterText(account->clientLegalName);
+			printCenterText(account->branchPhone);
+			printCenterText(account->clientWeb);
+
+			if (transaction->withCustomFields)
+			{
+				Ibox_Product *product = transaction->customFieldsProduct;
+				if (product) printKeyValue(product->title, "");
+
+				for (int i = 0; i < transaction->customFieldsCount; i++)
+				{
+					Ibox_ProductField *field = transaction->customFields[i];
+					printKeyValue(field->title, field->value);
+				}
+			}
+
+			char *dateString = calloc(19, sizeof(char));
+			time_t currentTime = time(NULL);
+			struct tm currentTm = *localtime(&currentTime);
+			struct tm tm;
+
+			strptime(transaction->date, "%Y-%m-%dT%H:%M:%S", &tm);
+			tm.tm_isdst = currentTm.tm_isdst;
+			tm.tm_gmtoff = currentTm.tm_gmtoff;
+			tm.tm_zone = currentTm.tm_zone;
+
+			time_t t = mktime(&tm);
+			strftime(dateString, 18, "%d.%m.%y %H:%M:%S", &tm);
+			strcat(dateString, "\0");
+
+			printKeyValue("Date and time", dateString);
+			printKeyValue("Terminal", account->terminalName);
+			printKeyValue("Receipt", transaction->invoice);
+			printKeyValue("Approval Code", transaction->approvalCode);
+			printKeyValue("RRN", transaction->rrn);
+
+			if (card)
+			{
+				if (card->iin && card->panMasked)
+				{
+					int length = strlen(card->iin) + strlen(card->panMasked) + 1;
+					char *cardString = calloc(length + 1, sizeof(double));
+					strncpy(cardString, card->iin, strlen(card->iin));
+					strcat(cardString, " ");
+					strncat(cardString, card->panMasked, strlen(card->panMasked));
+					strcat(cardString, "\0");
+					printKeyValue("Card", cardString);
+					free(cardString);
+				}
+			}
+
+			if (transaction->emvDataCount)
+			{
+				for (int i = 0; i < transaction->emvDataCount; i++)
+				{
+					Ibox_EmvTag *emvTag = transaction->emvData[i];
+					printKeyValue(emvTag->key, emvTag->value);
+				}
+			}
+
+			printKeyValue("Operation", transaction->operation);
+
+			char *amountString = createAmountString(transaction->amount, NULL, transaction->currencySignSafe);
+			printKeyValue("Total", amountString);
+			free(amountString);
+
+			char *feeString = createAmountString(0.0, NULL, transaction->currencySignSafe);
+			printKeyValue("Fee", feeString);
+			free(feeString);
+
+			printKeyValue("State", "Success");
+
+			if (transaction->inputType == Ibox_Transaction_InputType_EMV || transaction->inputType == Ibox_Transaction_InputType_NFC)
+				printCenterText("Confirmed by entering PIN");
+			else
+			{
+				if (requireSignature)
+				{
+					char *signatureTitle = "Customer sign";
+					char *signatureString = calloc(PRINTER_TAPE_WIDTH_CHARS + 1, sizeof(char));
+					strncpy(signatureString, signatureTitle, strlen(signatureTitle));
+					for (int i = 0; i < PRINTER_TAPE_WIDTH_CHARS - strlen(signatureTitle); i++)
+						strcat(signatureString, "_");
+					strcat(signatureString, "\0");
+					printCenterText(" ");
+					printCenterText(" ");
+					printCenterText(signatureString);
+					free(signatureString);
+				}
+			}
+		}
+	}
 }
 
 void addProductData(Ibox_PaymentContext *paymentContext, Ibox_Result_Authentication *authResult)
@@ -236,6 +464,7 @@ int main(void)
 	Ibox_PaymentController_SetSendWebRequestAction(&sendWebRequest);
 	Ibox_PaymentController_SetSendReaderRequestAction(&sendReaderRequest);
 	Ibox_PaymentController_SetStartTransactionAction(&startTransactionAction);
+	Ibox_PaymentController_SetSelectEmvApplicationAction(&selectEmvApplicationAction);
 	Ibox_PaymentController_SetCredentials(EMAIL, SECRET_KEY);
 	Ibox_PaymentController_SetDebugEnabled(DEBUG_ENABLED);
 	Ibox_PaymentController_ReaderSoundEnabled(1);
@@ -284,6 +513,8 @@ int main(void)
 			Ibox_Account *account = authResult->account;
 			if (account)
 			{
+				mAccount = account;
+
 				fprintf(stderr, "Account data:\n%s\n", account->name);
 				fprintf(stderr, "%s\n", account->clientLegalAddress);
 				fprintf(stderr, "%s\n", account->branchPhone);
@@ -420,7 +651,10 @@ int main(void)
 
 		Ibox_Result_Submit *submitResult = Ibox_PaymentController_StartPayment(paymentContext);
 		if (!submitResult->errorCode)
+		{
 			fprintf(stderr, "Payment done!\n");
+			printSlip(submitResult->transaction, mAccount, submitResult->requireSignature);
+		}
 		else
 			fprintf(stderr, "Payment error: %s\n", submitResult->errorMessage);
 
@@ -512,6 +746,60 @@ int main(void)
 				Ibox_FiscalInfo *fiscalInfo = transaction->fiscalInfo;
 				fprintf(stderr, "Fiscal printer serial number: %s\n", fiscalInfo->printerSerialNumber);
 				fprintf(stderr, "Fiscal date time: %s\n", fiscalInfo->dateTime);
+
+				Ibox_Card *card = transaction->card;
+				fprintf(stderr, "Card iin: %s\n", card->iin);
+				fprintf(stderr, "Card pan masked: %s\n", card->panMasked);
+				fprintf(stderr, "Card expiration: %s\n", card->expiration);
+
+				if (transaction->emvDataCount)
+				{
+					fprintf(stderr, "Emv data:\n");
+					for (int i = 0; i < transaction->emvDataCount; i++)
+					{
+						Ibox_EmvTag *emvTag = transaction->emvData[i];
+						fprintf(stderr, "%s - %s\n", emvTag->key, emvTag->value);
+					}
+				}
+
+				if (transaction->withPurchases)
+				{
+					fprintf(stderr, "Purchases count: %d\n", transaction->purchasesCount);
+					for (int i = 0; i < transaction->purchasesCount; i++)
+					{
+						Ibox_Purchase *purchase = transaction->purchases[i];
+						fprintf(stderr, "%s - %f - %d\n", purchase->title, purchase->price, purchase->taxesCount);
+
+						if (purchase->taxesCount)
+						{
+							fprintf(stderr, "Taxes:\n");
+							for (int j = 0; j < purchase->taxesCount; j++)
+								fprintf(stderr, "%s\n", purchase->taxes[j]);
+						}
+					}
+				}
+
+				if (transaction->withTags)
+				{
+					fprintf(stderr, "Tags count: %d\n", transaction->tagsCount);
+					for (int i = 0; i < transaction->tagsCount; i++)
+					{
+						Ibox_Tag *tag = transaction->tags[i];
+						fprintf(stderr, "%s - %s\n", tag->code, tag->value);
+					}
+				}
+
+				if (transaction->withCustomFields)
+				{
+					fprintf(stderr, "Custom fields count: %d\n", transaction->customFieldsCount);
+					for (int i = 0; i < transaction->customFieldsCount; i++)
+					{
+						Ibox_ProductField *field = transaction->customFields[i];
+						fprintf(stderr, "%s - %s\n", field->title, field->value);
+					}
+				}
+
+				printSlip(transaction, mAccount, 1);
 			}
 		}
 	}

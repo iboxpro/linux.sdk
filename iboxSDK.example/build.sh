@@ -1,1 +1,1 @@
-gcc main.c serial.c hw.c SDK/lib/armv7/libiboxSDK.a -lcurl
+gcc main.c serial.c hw.c SDK/lib/x86/libiboxSDK.a -lcurl
