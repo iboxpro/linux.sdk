@@ -101,4 +101,20 @@ typedef struct {
     int fieldsCount;
 } Ibox_Result_Prepare;
 
+typedef struct
+{
+	char Cmd;
+	char Status;
+	char CardType;
+	char ATQA[2];
+	char SAK;
+	char UID[7];
+	char *cardData;
+	int cardDataLen;
+
+	const char *errorMessage;
+	int errorCode;
+} Ibox_Result_Mifare;
+
+
 #endif

@@ -3,32 +3,35 @@
 #include "hw.h"
 #include "SDK/PaymentController.h"
 #include "SDK/WebObject.h"
+#include "SDK/ReleaseObjects.h"
+#include "hextools.h"
 
-#define DEBUG_ENABLED 					1
-#define AUTH                    		1
-#define GET_READER_INFO         		0
-#define TEST_LINKED_CARD 				0
-#define TEST_CARD_PAYMENT 				1
-#define TEST_SCHEDULE					0
-#define TEST_REVERSE					0
-#define TEST_PURCHASES					0
-#define TEST_PRODUCT					0
-#define TEST_TAGS						0
-#define TEST_TRANSACTION				0
-#define TEST_FISCALIZE					0
-#define TEST_PREPARE					0
-#define TEST_REVERSE_LAST_TRANSACTION 	0
+#define DEBUG_ENABLED 1
+#define AUTH 1
+#define GET_READER_INFO 0
+#define TEST_LINKED_CARD 0
+#define TEST_CARD_PAYMENT 1
+#define TEST_SCHEDULE 0
+#define TEST_REVERSE 0
+#define TEST_PURCHASES 0
+#define TEST_PRODUCT 0
+#define TEST_TAGS 0
+#define TEST_TRANSACTION 0
+#define TEST_FISCALIZE 0
+#define TEST_PREPARE 0
+#define TEST_REVERSE_LAST_TRANSACTION 0
+#define TEST_MIFARE 0
 
-#define EMAIL            				""
-#define SECRET_KEY					""
-#define AMOUNT							23.0
-#define AMOUNT_REVERSE					0.0
-#define TRANSACTION_ID					"CBEC0494-6938-489E-B3FA-FC829C6EAAB0"
-#define RECEIPT_EMAIL					"test@mail.de"
-#define RECEIPT_PHONE					"+73211232312"
-#define ACQUIRER_CODE					NULL		//"ACQ_CODE"
-#define PRODUCT_FIELD_TEST_DATA			"field data"
-#define PRINTER_TAPE_WIDTH_CHARS		32
+#define EMAIL ""
+#define SECRET_KEY ""
+#define AMOUNT 1.0
+#define AMOUNT_REVERSE 0.0
+#define TRANSACTION_ID "42b5798b-ec5f-4ecd-8428-62bd51b5c176"
+#define RECEIPT_EMAIL "test@mail.de"
+#define RECEIPT_PHONE "+73211232312"
+#define ACQUIRER_CODE NULL //"ACQ_CODE"
+#define PRODUCT_FIELD_TEST_DATA "field data"
+#define PRINTER_TAPE_WIDTH_CHARS 32
 
 // member variables
 Ibox_Account *mAccount = NULL;
@@ -37,17 +40,49 @@ const char *mTransactionId = NULL;
 // callbacks
 void startTransactionAction(const char *transactionId)
 {
-	mTransactionId = transactionId;
-	fprintf(stderr, "TransactionID:%s\n", transactionId);
+
+	if (transactionId) {
+		if (mTransactionId)
+			free(mTransactionId);
+		mTransactionId = calloc(strlen(transactionId) + 1, sizeof(char));
+		strcpy(mTransactionId, transactionId);
+		fprintf(stderr, "TransactionID:%s\n", transactionId);
+	}
+	else
+		fprintf(stderr, "Transaction started.\n");
 }
 
 int selectEmvApplicationAction(char **emvApplications, int emvApplicationsCount)
 {
 	fprintf(stderr, "selectEmvApplicationAction\n");
-	int selectedIndex = 1;
+	int selectedIndex = 0;
 	for (int i = 0; i < emvApplicationsCount; i++)
 		fprintf(stderr, "emv app title: %d - %s\n", i, emvApplications[i]);
 	return selectedIndex;
+}
+
+void reverseTransactionNotFoundAction()
+{
+	fprintf(stderr, "reverseTransactionNotFoundAction\n");
+}
+
+int reverseCancellationTimeoutAction()
+{
+	fprintf(stderr, "reverseCancellationTimeoutAction\n");
+	int makeReturn = 1;
+	return makeReturn;
+}
+
+int times = 0;
+int cancelCheckCardAction()
+{
+	if (times++ > 3)
+	{
+		fprintf(stderr, "cancelCheckCardAction: 3 times. Cancelling\n");
+		return 1;
+	}
+	else
+		return 0;
 }
 
 // print slip
@@ -178,7 +213,8 @@ void printSlip(Ibox_Transaction *transaction, Ibox_Account *account, int require
 			if (transaction->withCustomFields)
 			{
 				Ibox_Product *product = transaction->customFieldsProduct;
-				if (product) printKeyValue(product->title, "");
+				if (product)
+					printKeyValue(product->title, "");
 
 				for (int i = 0; i < transaction->customFieldsCount; i++)
 				{
@@ -261,6 +297,8 @@ void printSlip(Ibox_Transaction *transaction, Ibox_Account *account, int require
 					free(signatureString);
 				}
 			}
+
+			free(dateString);
 		}
 	}
 }
@@ -292,7 +330,7 @@ void addProductData(Ibox_PaymentContext *paymentContext, Ibox_Result_Authenticat
 					Ibox_ProductField *field = product->fields[i];
 					if (field->state == Ibox_ProductField_State_ENABLED && field->type == Ibox_ProductField_Type_TEXT)
 					{
-						if (field->defaultValue )
+						if (field->defaultValue)
 							field->value = field->defaultValue;
 						else
 							field->value = PRODUCT_FIELD_TEST_DATA;
@@ -326,11 +364,13 @@ void addProductData(Ibox_PaymentContext *paymentContext, Ibox_Result_Authenticat
 			product->code = "PRODUCT_TEST";
 
 			Ibox_ProductField *field1 = calloc(1, sizeof(Ibox_ProductField));
+			field1->type = Ibox_ProductField_Type_TEXT;
 			field1->title = "Поле один";
 			field1->code = "FIELD_1";
 			field1->value = "Тестовое значение";
 
 			Ibox_ProductField *field2 = calloc(1, sizeof(Ibox_ProductField));
+			field1->type = Ibox_ProductField_Type_TEXT;
 			field2->title = "Поле два";
 			field2->code = "FIELD_2";
 			field2->value = "Тестовое значение";
@@ -465,13 +505,142 @@ int main(void)
 	Ibox_PaymentController_SetSendReaderRequestAction(&sendReaderRequest);
 	Ibox_PaymentController_SetStartTransactionAction(&startTransactionAction);
 	Ibox_PaymentController_SetSelectEmvApplicationAction(&selectEmvApplicationAction);
+	Ibox_PaymentController_SetReverseTransactionNotFoundAction(&reverseTransactionNotFoundAction);
+	Ibox_PaymentController_SetReverseCancellationTimeoutAction(&reverseCancellationTimeoutAction);
+	Ibox_PaymentController_SetCancelCheckCardAction(&cancelCheckCardAction);
+
 	Ibox_PaymentController_SetCredentials(EMAIL, SECRET_KEY);
 	Ibox_PaymentController_SetDebugEnabled(DEBUG_ENABLED);
-	Ibox_PaymentController_ReaderSoundEnabled(1);
+	Ibox_PaymentController_ReaderSoundEnabled(0);
+	Ibox_PaymentController_SetNFCOnly(1);
 
 	mTransactionId = NULL;
 
 	fprintf(stderr, "Version:%s\n", Ibox_PaymentController_Version());
+
+	if (TEST_MIFARE)
+	{
+
+		char uid[7];
+
+		//POLL CARD
+
+		Ibox_Result_Mifare *result = Ibox_PaymentController_DoMifare(MIFARE_POLL_CARD);
+		if (result && !result->errorCode)
+		{
+			char *suid = bin2hex(result->UID, 7);
+			char *data = bin2hex(result->cardData, result->cardDataLen);
+
+			fprintf(stderr, "DoMifare: Cmd=%02d, Status=%02d, CardType=%02d, ATQA=%02d%02d, SAK=%02d, CardUid=%s, CardData=%s\n", 
+					result->Cmd,
+					result->Status,
+					result->CardType,
+					result->ATQA[0], result->ATQA[1],
+					result->SAK,
+					suid,
+					data);
+
+			if (suid) free (suid);
+			if (data) free (data);
+
+			memcpy(uid, result->UID, 7);
+		}
+		else
+		{
+			fprintf(stderr, "DoMifare: %s\n", result->errorMessage);
+		}
+
+		ReleaseIboxMifareResult(result);
+
+		// VERIFY CARD
+		Ibox_PaymentController_setMifareKeyClass(0x60);
+		Ibox_PaymentController_setMifareBlockAddr(0x1C);
+		Ibox_PaymentController_setMifareCardUid(uid);
+		char kv[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+		Ibox_PaymentController_setMifareKeyValue(kv, 6);
+
+		result = Ibox_PaymentController_DoMifare(MIFARE_VERIFY_CARD);
+
+		if (result && !result->errorCode)
+		{
+			char *suid = bin2hex(result->UID, 7);
+			char *data = bin2hex(result->cardData, result->cardDataLen);
+
+			fprintf(stderr, "DoMifare: Cmd=%02d, Status=%02d, CardType=%02d, ATQA=%02d%02d, SAK=%02d, CardUid=%s, CardData=%s\n", 
+					result->Cmd,
+					result->Status,
+					result->CardType,
+					result->ATQA[0], result->ATQA[1],
+					result->SAK,
+					suid,
+					data);
+
+			if (suid) free (suid);
+			if (data) free (data);
+		}
+		else
+		{
+			fprintf(stderr, "DoMifare: %s\n", result->errorMessage);
+		}
+		ReleaseIboxMifareResult(result);
+
+		// READ CARD
+		Ibox_PaymentController_setMifareBlockAddr(0x1C);
+		result = Ibox_PaymentController_DoMifare(MIFARE_READ_CARD);
+
+		if (result && !result->errorCode)
+		{
+			char *suid = bin2hex(result->UID, 7);
+			char *data = bin2hex(result->cardData, result->cardDataLen);
+
+			fprintf(stderr, "DoMifare: Cmd=%02d, Status=%02d, CardType=%02d, ATQA=%02d%02d, SAK=%02d, CardUid=%s, CardData=%s\n", 
+					result->Cmd,
+					result->Status,
+					result->CardType,
+					result->ATQA[0], result->ATQA[1],
+					result->SAK,
+					suid,
+					data);
+
+			if (suid) free (suid);
+			if (data) free (data);
+		}
+		else
+		{
+			fprintf(stderr, "DoMifare: %s\n", result->errorMessage);
+		}
+		ReleaseIboxMifareResult(result);
+
+		// WRITE CARD
+		Ibox_PaymentController_setMifareBlockAddr(0x1C);
+		char data[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+		Ibox_PaymentController_setMifareCardData(data, 6);
+		result = Ibox_PaymentController_DoMifare(MIFARE_WRITE_CARD);
+
+		if (result && !result->errorCode)
+		{
+			char *suid = bin2hex(result->UID, 7);
+			char *data = bin2hex(result->cardData, result->cardDataLen);
+
+			fprintf(stderr, "DoMifare: Cmd=%02d, Status=%02d, CardType=%02d, ATQA=%02d%02d, SAK=%02d, CardUid=%s, CardData=%s\n", 
+					result->Cmd,
+					result->Status,
+					result->CardType,
+					result->ATQA[0], result->ATQA[1],
+					result->SAK,
+					suid,
+					data);
+
+			if (suid) free (suid);
+			if (data) free (data);
+		}
+		else
+		{
+			fprintf(stderr, "DoMifare: %s\n", result->errorMessage);
+		}
+		ReleaseIboxMifareResult(result);
+
+	}
 
 	if (GET_READER_INFO)
 	{
@@ -486,7 +655,7 @@ int main(void)
 		{
 			fprintf(stderr, "Reader id error.\n");
 		}
-		free(readerIdResult);
+		ReleaseIboxReaderId(readerIdResult);
 
 		Ibox_Result_ReaderInfo *readerInfoResult = Ibox_PaymentController_ReaderInfo();
 		if (!readerInfoResult->errorCode)
@@ -499,7 +668,7 @@ int main(void)
 		{
 			fprintf(stderr, "Reader info error.\n");
 		}
-		free(readerInfoResult);
+		ReleaseIboxReaderInfo(readerInfoResult);
 		fprintf(stderr, "\n\n");
 	}
 
@@ -549,6 +718,7 @@ int main(void)
 				fprintf(stderr, "CardExp: %s\n", linkedCard->cardExpiration);
 			}
 		}
+		ReleaseIboxLinkedCards(linkedCardsResult);
 
 		if (!Ibox_PaymentController_IsReaderConected())
 		{
@@ -597,8 +767,8 @@ int main(void)
 						fprintf(stderr, "Payment error: %s\n", submitResult->errorMessage);
 					}
 
-					free(submitResult);
 					free(paymentContext);
+					ReleaseIboxSubmitResult(submitResult);
 
 					Ibox_Result *removeLinkedCardResult = Ibox_PaymentController_RemoveLinkedCard(linkedCard->id);
 					if (!removeLinkedCardResult->errorCode)
@@ -609,18 +779,19 @@ int main(void)
 					{
 						fprintf(stderr, "Remove linked card error: %s\n", removeLinkedCardResult->errorMessage);
 					}
-					free(removeLinkedCardResult);
+					ReleaseIboxResult(removeLinkedCardResult);
 				}
 				else
 				{
 					fprintf(stderr, "Add linked card error:\n%s\n", addLinkedCardResult->errorMessage);
 				}
+				ReleaseIboxAddLinkedCardResult(addLinkedCardResult);
 			}
 			else
 			{
 				fprintf(stderr, "Reader check card error:\n%s\n", readerCheckCardResult->errorMessage);
 			}
-			free(readerCheckCardResult);
+			ReleaseIboxReaderCheckCardResult(readerCheckCardResult);
 		}
 
 		fprintf(stderr, "\n\n");
@@ -634,7 +805,7 @@ int main(void)
 		paymentContext->inputType = Ibox_PaymentController_InputType_CARD;
 		paymentContext->currencyType = Ibox_PaymentController_CurrencyType_RUB;
 		paymentContext->amount = AMOUNT;
-		paymentContext->description = "Description of transaction";
+		paymentContext->description = "Linux test app";
 		paymentContext->singleStepAuth = 1;
 		paymentContext->receiptEmail = RECEIPT_EMAIL;
 		paymentContext->receiptPhone = RECEIPT_PHONE;
@@ -658,7 +829,17 @@ int main(void)
 		else
 			fprintf(stderr, "Payment error: %s\n", submitResult->errorMessage);
 
-		free(submitResult);
+		ReleaseIboxSubmitResult(submitResult);
+
+		if (paymentContext->product)
+			free(paymentContext->product);
+
+		if (paymentContext->productDataCount > 0)
+		{
+			for (int i = 0; i < paymentContext->productDataCount; i++)
+				free(paymentContext->productData[i]);
+			free(paymentContext->productData);
+		}
 		free(paymentContext);
 		fprintf(stderr, "\n");
 	}
@@ -693,7 +874,7 @@ int main(void)
 			else
 				fprintf(stderr, "Reverse error: %s\n", reverseResult->errorMessage);
 
-			free(reverseResult);
+			ReleaseIboxReverseResult(reverseResult);
 			free(reverseContext);
 		}
 	}
@@ -725,6 +906,7 @@ int main(void)
 		else
 			fprintf(stderr, "Schedule error: %s\n", scheduleSubmitResult->errorMessage);
 
+		//TODO: Release schedules
 		free(scheduleSubmitResult);
 		free(scheduleContext);
 	}
@@ -800,8 +982,12 @@ int main(void)
 				}
 
 				printSlip(transaction, mAccount, 1);
+
+				// ReleaseIboxTransaction(transaction);
 			}
 		}
+
+		ReleaseIboxTransactions(transactionResult);
 	}
 
 	if (TEST_FISCALIZE)
@@ -811,6 +997,8 @@ int main(void)
 		{
 			fprintf(stderr, "Fiscalization done.");
 		}
+
+		ReleaseIboxResult(fiscalizeResult);
 	}
 
 	if (TEST_PREPARE)
@@ -896,14 +1084,17 @@ int main(void)
 				else
 					fprintf(stderr, "Prepare error: %s\n", prepareResult->errorMessage);
 
+				//TODO: release preparable
 				free(prepareResult);
 				free(productPrepareData);
 			}
 		}
 	}
 
-	if (authResult)
-		free(authResult);
-
+	ReleaseIboxAuthenticationResult(authResult);
+	//ReleaseIboxAccount(mAccount);
+	if (mTransactionId)
+		free(mTransactionId);
+	Ibox_PaymentController_Cleanup();
 	return 0;
 }

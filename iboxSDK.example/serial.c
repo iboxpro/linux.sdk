@@ -288,6 +288,7 @@ int serial_open_advanced(serial_t *serial, const char *path, uint32_t baudrate,
 int serial_read(serial_t *serial, uint8_t *buf, size_t len, int timeout_ms) {
 	size_t bytes_left, bytes_read;
 	ssize_t ret;
+	ssize_t retSave;
 	fd_set rfds;
 	struct timeval tv_timeout;
 
@@ -307,6 +308,8 @@ int serial_read(serial_t *serial, uint8_t *buf, size_t len, int timeout_ms) {
 				return _serial_error(serial, SERIAL_ERROR_IO, errno,
 						"select() on serial port");
 
+			retSave = ret;
+
 			/* Timeout / nothing more to read */
 			if (ret == 0)
 				break;
@@ -315,6 +318,13 @@ int serial_read(serial_t *serial, uint8_t *buf, size_t len, int timeout_ms) {
 		if ((ret = read(serial->fd, buf + bytes_read, bytes_left)) < 0)
 			return _serial_error(serial, SERIAL_ERROR_IO, errno,
 					"Reading serial port");
+
+		if (retSave != 0 && ret == 0)
+		{
+			fprintf(stderr, "serial_read kwa\n");
+			return _serial_error(serial, SERIAL_ERROR_IO, errno,
+							"Reading serial port");
+		}
 
 		bytes_read += ret;
 		bytes_left -= ret;

@@ -1,6 +1,20 @@
 #ifndef PAYMENTCONTROLLER_H_
 #define PAYMENTCONTROLLER_H_
 
+#define MIFARE_POLL_CARD 0x01
+#define MIFARE_VERIFY_CARD 0x02
+#define MIFARE_READ_CARD 0x03
+#define MIFARE_WRITE_CARD 0x04
+#define MIFARE_FINISH_TRANSACTION 0x0E
+
+#define MIFARE_OK                                                               0x00
+#define MIFARE_PARAM_ERROR                                                      0x01
+#define MIFARE_TIMEOUT_ERROR                                                    0x02
+#define MIFARE_CRC_ERROR                                                        0x03
+#define MIFARE_NACK_ERROR                                                       0x04
+#define MIFARE_POLL_ERROR                                                       0x05
+#define MIFARE_OPERATION_ERROR                                                  0x06
+
 #include "Result.h"
 
 // enums
@@ -22,12 +36,14 @@ typedef enum
 } Ibox_PaymentController_CurrencyType;
 
 // structures
-typedef struct {
-    char *data;
-    int length;
+typedef struct
+{
+	char *data;
+	int length;
 } Ibox_MemoryStruct;
 
-typedef struct {
+typedef struct
+{
 	Ibox_PaymentController_InputType inputType;
 	Ibox_PaymentController_CurrencyType currencyType;
 	Ibox_Purchase **purchases;
@@ -40,8 +56,11 @@ typedef struct {
 	const char *acquirerCode;
 	const char *purchasesJson;
 	const char *description;
+	const char *imagePath;
 	const char *tagsJson;
+	const char *extId;
 	double amount;
+	double amountCashGot;
 	int linkedCardId;
 	int purchasesCount;
 	int productDataCount;
@@ -49,19 +68,24 @@ typedef struct {
 	int singleStepAuth;
 } Ibox_PaymentContext;
 
-typedef struct {
+typedef struct
+{
 	Ibox_Purchase **purchases;
 	Ibox_Tag **tags;
+	const char *receiptEmail;
+	const char *receiptPhone;
 	const char *transactionId;
 	const char *purchasesJson;
 	const char *tagsJson;
+	const char *extId;
 	double amountReverse;
 	int purchasesCount;
 	int tagsCount;
 	int forceReturn;
 } Ibox_ReverseContext;
 
-typedef struct {
+typedef struct
+{
 	Ibox_PaymentController_CurrencyType currencyType;
 	Ibox_Schedule_Type scheduleType;
 	Ibox_Schedule_EndType scheduleEndType;
@@ -87,15 +111,28 @@ typedef struct {
 } Ibox_ScheduleContext;
 
 // events
-typedef Ibox_MemoryStruct *(*IboxSendWebRequestAction) (const char *, const char *);
-typedef Ibox_MemoryStruct *(*IboxSendReaderRequestAction) (char *, int);
-typedef void (*IboxStartTransactionAction) (const char *);
+typedef Ibox_MemoryStruct *(*IboxSendWebRequestAction)(const char *, const char *);
+typedef Ibox_MemoryStruct *(*IboxSendReaderRequestAction)(char *, int);
+typedef void (*IboxStartTransactionAction)(const char *);
+typedef void (*IboxWaiting4CardAction)();
+typedef void (*IboxEmvTransactionStartAction)();
+typedef int (*IboxSelectEmvApplicationAction)(char **, int);
+typedef void (*IboxReverseTransactionNotFoundAction)();
+typedef int (*IboxReverseCancellationTimeoutAction)();
+typedef int (*IboxCancelCardCheckAction)();
 
 // setters
 void Ibox_PaymentController_SetCredentials(const char *email, const char *key);
+void Ibox_PaymentController_SetClientProductCode(const char *code);
 void Ibox_PaymentController_SetSendWebRequestAction(IboxSendWebRequestAction action);
 void Ibox_PaymentController_SetSendReaderRequestAction(IboxSendReaderRequestAction action);
 void Ibox_PaymentController_SetStartTransactionAction(IboxStartTransactionAction action);
+void Ibox_PaymentController_SetWaiting4CardAction(IboxWaiting4CardAction action);
+void Ibox_PaymentController_SetEmvTransactionStartAction(IboxEmvTransactionStartAction action);
+void Ibox_PaymentController_SetSelectEmvApplicationAction(IboxSelectEmvApplicationAction action);
+void Ibox_PaymentController_SetReverseTransactionNotFoundAction(IboxReverseTransactionNotFoundAction action);
+void Ibox_PaymentController_SetReverseCancellationTimeoutAction(IboxReverseCancellationTimeoutAction action);
+void Ibox_PaymentController_SetCancelCheckCardAction(IboxCancelCardCheckAction action);
 
 // authentication
 Ibox_Result_Authentication *Ibox_PaymentController_Authentication();
@@ -107,10 +144,10 @@ Ibox_Result_ReaderId *Ibox_PaymentController_ReaderId();
 Ibox_Result_ReaderInfo *Ibox_PaymentController_ReaderInfo();
 
 // reader reset
-Ibox_Result *Ibox_PaymentController_ReaderReset();
+void Ibox_PaymentController_ReaderReset();
 
 // reader sound
-Ibox_Result *Ibox_PaymentController_ReaderSoundEnabled(int enabled);
+void Ibox_PaymentController_ReaderSoundEnabled(int enabled);
 
 // linked cards
 Ibox_Result_LinkedCards *Ibox_PaymentController_LinkedCards();
@@ -134,6 +171,8 @@ Ibox_Result_ScheduleSubmit *Ibox_PaymentController_StartSchedule(Ibox_ScheduleCo
 
 // history
 Ibox_Result_Transactions *Ibox_PaymentController_Transaction(const char *transactionId);
+Ibox_Result_Transactions *Ibox_PaymentController_TransactionByInvoice(const char *invoice);
+Ibox_Result_Transactions *Ibox_PaymentController_TransactionByRRN(const char *rrn);
 Ibox_Result_Transactions *Ibox_PaymentController_Transactions(int page);
 
 // adjust
@@ -152,5 +191,18 @@ char *Ibox_PaymentController_Version();
 void Ibox_PaymentController_CancelGetCardData();
 void Ibox_PaymentController_SetDebugEnabled(int debugEnabled);
 int Ibox_PaymentController_IsReaderConected();
+void Ibox_PaymentController_SetNFCOnly(int nfcOnly);
+
+void Ibox_PaymentController_Cleanup();
+
+Ibox_Result_Mifare *Ibox_PaymentController_DoMifare(int code);
+void Ibox_PaymentController_setMifareKeyClass(int keyClass);
+void Ibox_PaymentController_setMifareBlockAddr(int addr);
+void Ibox_PaymentController_setMifareOperation(int cmd);
+void Ibox_PaymentController_setMifareKeyValue(char *keyValue, int len);
+void Ibox_PaymentController_setMifareCardUid(char *cardUid);
+void Ibox_PaymentController_setMifareCardData(char *cardData, int len);
+void Ibox_PaymentController_setMifareQuickAddr(int startAddr, int endAddr);
+void Ibox_PaymentController_mifareTranstransmission(char *data, int len);
 
 #endif

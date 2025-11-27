@@ -221,6 +221,7 @@ typedef struct
 	Ibox_EmvTag **emvData;
 	Ibox_Purchase **purchases;
 	Ibox_Tag **tags;
+	const char *json;
 	const char *auxData;
 	const char *id;
 	const char *date;
@@ -275,6 +276,7 @@ typedef struct
 {
 	Ibox_LinkedCard_Status status;
 	Ibox_LinkedCard_State state;
+	const char *json;
 	const char *alias;
 	const char *shortNumber;
 	const char *cardholderName;
@@ -304,6 +306,7 @@ typedef struct
 typedef struct
 {
 	Ibox_PaymentOption **paymentOptions;
+	const char *json;
 	const char *name;
 	const char *branchName;
 	const char *branchAdress;
